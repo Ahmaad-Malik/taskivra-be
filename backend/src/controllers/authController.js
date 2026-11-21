@@ -1,5 +1,6 @@
 const {BadRequestError, ErrorModel} = require("../errors/appError")
-const {LoginInputsValidator, BaseAuthInputsValidator} = require("../validators/authInputsValidators") 
+const { AuthService } = require("../services/authService")
+const {LoginInputsValidator, BaseAuthInputsValidator} = require("../validators/authInputsValidators")
 
 class AuthController {
     static COOKIE_EXPIRY_TIME = 3 * 60 * 60 * 1000
@@ -22,12 +23,12 @@ class AuthController {
 
             const account = await this.authService.login(username, password, email)
 
-            res.cookie("token", account.token, {
-                httpOnly:true,
-                secure:false,
-                sameSite:"lax",
-                maxAge: AuthController.COOKIE_EXPIRY_TIME
-            })
+            res.cookie(AuthService.COOKIE_KEY, account.token, 
+                {
+                    ...AuthService.COOKIE_OPTIONS,
+                    maxAge: AuthController.COOKIE_EXPIRY_TIME
+                }
+            )
 
             res.status(200).json({
                 success:true,
@@ -59,11 +60,9 @@ class AuthController {
 
     logout = async(req, res, next) => {
         try {
-            res.clearCookie("token",{
-                httpOnly:true,
-                secure:false,
-                sameSite:"lax",
-            })
+            await this.authService.logout(req.user.accountId, req.user.jti)//<-- deletes the activity key from redis to revoke the token
+
+            res.clearCookie(AuthService.COOKIE_KEY, AuthService.COOKIE_OPTIONS)
 
             res.status(200).json({
                 success:true,

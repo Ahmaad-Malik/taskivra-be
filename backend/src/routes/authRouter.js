@@ -4,8 +4,10 @@ const {authenticate} = require("../middlewares/authMiddlewares")
 const express = require("express")
 const {prisma} = require("../../prisma/client")
 const {loginRateLimiter} = require("../middlewares/rateLimitMiddlewares")
+const { SessionService } = require("../services/sessionService")
 
-const authService = new AuthService(prisma)
+const sessionService = new SessionService()
+const authService = new AuthService(prisma, sessionService)
 const authController = new AuthController(authService)
 
 const authRouter = express.Router()

@@ -1,5 +1,6 @@
 const {AccountCreationInputsValidator, BaseAuthInputsValidator, AccountUpdationInputsValidator} = require("../validators/authInputsValidators")
 const {BadRequestError, ErrorModel} = require("../errors/appError")
+const { AuthService } = require("../services/authService")
 
 //Account controller that handles Http requests
 //without directly interacting with database
@@ -102,12 +103,49 @@ class AccountController {
 
             const account = await this.accountService.deleteAccount(Number(req.user.accountId), Number(accountId), password)
 
+            //clearing the cookie only when user is
+            //deleting his own account, not when admin deletes
+            //another user's account
+            if (Number(req.user.accountId) === Number(accountId)){
+                res.clearCookie(AuthService.COOKIE_KEY, AuthService.COOKIE_OPTIONS)
+            }
+
+            if(res.locals?.hasNextMiddleware ?? null){
+
+                const localsData = {
+                    statusCode: 200,
+                    success: true,
+                    message: "Account deleted permanently",
+                    data: account,
+                    error: false,
+                    functionName: false,
+                    controllerName: false
+                }
+
+
+                res.locals = localsData
+                return next() //<-- calling the logger
+            }
             res.status(200).json({
                 success:true,
                 message:"Account deleted permanently",
                 data:account
             })
+
         } catch (error) {
+            if(res.locals?.hasNextMiddleware ?? null){
+                const localsData = {
+                    statusCode: false,
+                    success: false,
+                    message: false,
+                    data: false,
+                    error: error,
+                    functionName: "deleteAccount",
+                    controllerName: "AccountController"
+                }
+                res.locals = localsData
+                return next()
+            }
             next(
                 new ErrorModel(
                     error,
@@ -129,7 +167,7 @@ class AccountController {
 
             new BaseAuthInputsValidator().validatePassword(newPassword)
 
-            const account = await this.accountService.changePassword(oldPassword, newPassword, Number(accountId))
+            const account = await this.accountService.changePassword(oldPassword, newPassword, Number(accountId), req.user.jti)
 
             res.status(200).json({
                 success:true,
@@ -218,20 +256,42 @@ class AdminAccountController extends AccountController {
 
             const account = await this.accountService.updateAccountActivity(Number(accountId), status)
 
-            res.status(200).json({
-                success:true,
-                message:"Account activity status updated",
-                data:account
-            })
+            // res.status(200).json({
+            //     success:true,
+            //     message:"Account activity status updated",
+            //     data:account
+            // })
+            const localsData = {
+                statusCode: 200,
+                success: true,
+                message: "Account activity status updated",
+                data: account,
+                error: false,
+                functionName: false,
+                controllerName: false
+            }
+            res.locals = localsData
+            return next() //--> calling the logger middleware which will then send response
 
         } catch (error) {
-            next(
-                new ErrorModel(
-                    error,
-                    "updateAccountActivity",
-                    "AdminAccountController"
-                )
-            )
+            const localsData = {
+                statusCode: false,
+                success: false,
+                message: false,
+                data: false,
+                error: error,
+                functionName: "updateAccountActivity",
+                controllerName: "AdminAccountController"
+            }
+            res.locals = localsData
+            return next() //--> calling the logger middleware which calls the error handeling middleware
+            // next(
+            //     new ErrorModel(
+            //         error,
+            //         "updateAccountActivity",
+            //         "AdminAccountController"
+            //     )
+            // )
         }
     }
 }

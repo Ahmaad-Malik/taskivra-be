@@ -14,6 +14,7 @@ const {
 } = require("../setup/redisClient")
 
 const {AccountService, AdminAccountService} = require("../../src/services/accountService")
+const {SessionService} = require("../../src/services/sessionService")
 const crypto = require("crypto")
 const { redisClient } = require("../../src/config/redisClient")
 const bcrypt = require("bcrypt")
@@ -38,8 +39,8 @@ describe("AccountService", ()=>{
     beforeEach(async()=>{
         testUserAccounts = await createTestUserAccount()
         testAdminAccount = await createTestAdminAccount()
-        service = new AccountService(prisma)
-        adminService = new AdminAccountService(prisma)
+        service = new AccountService(prisma, new SessionService())
+        adminService = new AdminAccountService(prisma, new SessionService())
     })
 
     //cleaning up DB and redis after each testcase runs

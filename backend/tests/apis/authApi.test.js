@@ -293,9 +293,8 @@ describe("/api/auth", ()=>{
             expect(response.statusCode).toBe(401)
             expect(response.body.success).toBe(false)
             expect(response.body.message).toBe("Expired or malformed token")
-        
-            // Checking that no cookie was cleared
-            expect(response.headers["set-cookie"]).not.toBeDefined()
+
+            expect(response.headers["set-cookie"].find(cookie => cookie.startsWith("token="))).toContain("token=;")
         })
     })
 

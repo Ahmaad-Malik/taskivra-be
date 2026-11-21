@@ -9,8 +9,9 @@ const crypto = require("crypto")
 const {Resend} = require("resend")
 
 class AccountService {
-    constructor(prisma){
+    constructor(prisma, sessionService){
         this.prisma = prisma
+        this.sessionService = sessionService
     }
 
     signup = async(userAccountDetails) => {
@@ -175,6 +176,10 @@ class AccountService {
                 where:{id:accountId}
             }
         )
+
+        //revoking all the sessions
+        await this.sessionService.revokeSessions(accountId)
+        
         
         return {
             id:deletedAccount.id,
@@ -190,7 +195,7 @@ class AccountService {
         }
     }
 
-    changePassword = async(oldPassword, newPassword, accountId) => {
+    changePassword = async(oldPassword, newPassword, accountId, jti) => {
         //check if acccount exists
         const account = await this.getAccountById(accountId)
         if(!account){
@@ -216,6 +221,9 @@ class AccountService {
                 }
             }
         )
+
+        //revoking all the session except the current user session
+        await this.sessionService.revokeSessions(accountId, jti)
 
         return {
             id:updatedAccount.id,
@@ -361,6 +369,11 @@ class AdminAccountService extends AccountService{
                 }
             }
         )
+
+        //revoking all the sessions of deactivated account
+        if(status === false){
+            await this.sessionService.revokeSessions(accountId)
+        }
         
         return {
             id:inactivatedAccount.id,

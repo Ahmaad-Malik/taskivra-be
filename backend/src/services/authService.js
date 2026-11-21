@@ -6,8 +6,12 @@ const {Resend} = require("resend")
 
 class AuthService{
     static TOKEN_EXPIRY_TIME = "3h"
-    constructor(prisma){
+    static COOKIE_OPTIONS = { httpOnly: true, secure: false, sameSite: "lax" }
+    static COOKIE_KEY = "token"
+
+    constructor(prisma, sessionService){
         this.prisma = prisma
+        this.sessionService = sessionService
     }
 
     login = async(username, password, email) => {
@@ -37,8 +41,11 @@ class AuthService{
             throw new UnauthorizedError("Your account has been deactivated")
         }
 
+        //creating a session in redis
+        const jti = await this.sessionService.createSession(actualAccount.id)
+
         //create token
-        const token = this.#createAuthToken(actualAccount.username, actualAccount.id, actualAccount.isAdmin)
+        const token = this.#createAuthToken(actualAccount.username, actualAccount.id, jti, actualAccount.isAdmin)
 
         return {
             token,
@@ -138,6 +145,9 @@ class AuthService{
             return account
         })
 
+        //revoking the session
+        await this.sessionService.revokeSessions(updatedAccount.id)
+
         return {
             id:updatedAccount.id,
             username:updatedAccount.username,
@@ -162,12 +172,16 @@ class AuthService{
         return account && account.isActive
     }
 
-    #createAuthToken = (username, accountId, isAdmin) => {
-        //accountDetails have only username, id, isAdmin
+    logout = async(accountId, jti)=>{
+        await this.sessionService.revokeSingleSession(accountId, jti)
+    }
+
+    #createAuthToken = (username, accountId, jti, isAdmin) => {
         const token = jwt.sign(
             {
                 username,
                 accountId,
+                jti,
                 isAdmin,
             },
             process.env.JWT_SECRET, 
@@ -198,7 +212,6 @@ class AuthService{
 
         return data
     }
-
 }
 
 module.exports = {AuthService}

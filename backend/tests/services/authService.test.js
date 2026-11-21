@@ -7,7 +7,14 @@ const {
     disconnectTestDatabase
 } = require("../setup/database")
 
+const {
+    connectRedis,
+    cleanupRedis,
+    disconnectRedis
+} = require("../setup/redisClient")
+
 const {AuthService} = require("../../src/services/authService")
+const {SessionService} = require("../../src/services/sessionService")
 const crypto = require("crypto")
 const bcrypt = require("bcrypt")
 
@@ -21,6 +28,7 @@ describe("AuthService", ()=>{
     //connecting to test database
     beforeAll(async()=>{
         await connectTestDataBase()
+        await connectRedis()
     })
 
     //creating test records in DB before each
@@ -28,18 +36,20 @@ describe("AuthService", ()=>{
     beforeEach(async()=>{
         testUserAccounts = await createTestUserAccount()
         testAdminAccount = await createTestAdminAccount()
-        service = new AuthService(prisma)
+        service = new AuthService(prisma, new SessionService())
     })
 
     //cleaning up DB after each testcase runs
     afterEach(async()=>{
         await cleanupTestDatabase()
+        await cleanupRedis()
     })
 
     //disconnecting DB after all 
     //testcases run
     afterAll(async()=>{
         await disconnectTestDatabase()
+        await disconnectRedis()
     })
 
     //login testcases
